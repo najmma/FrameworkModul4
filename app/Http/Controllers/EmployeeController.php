@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class EmployeeController extends Controller
 {
@@ -12,7 +13,18 @@ class EmployeeController extends Controller
     public function index()
     {
         $pageTitle = 'Employee List';
-        return view('employee.index', ['pageTitle' => $pageTitle]);
+
+        //RAW SQL QUERY
+        $employees = DB::select('
+            select *, employees.id as employee_id, positions.name as position_name
+            from employees
+            left join positions on employees.position_id = positions.id
+        ');
+
+        return view('employee.index', [
+            'pageTitle' => $pageTitle,
+            'employees' => $employees
+        ]);
     }
 
     /**
@@ -21,7 +33,10 @@ class EmployeeController extends Controller
     public function create()
     {
         $pageTitle = 'Create Employee';
-        return view('employee.create', compact('pageTitle'));
+        //RAW SQL Query
+        $positions = DB::select('select * from positions');
+
+        return view('employee.create', compact('pageTitle', 'positions'));
     }
 
     /**
@@ -46,7 +61,16 @@ class EmployeeController extends Controller
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        return $request->all();
+        //INSERT QUERY
+        DB::table('employees')->insert([
+            'firstname' => $request->firstName,
+            'lastname' => $request->lastName,
+            'email' => $request->email,
+            'age' => $request->age,
+            'position_id' => $request->position,
+        ]);
+
+        return redirect()->route('employees.index');
     }
 
     /**
@@ -54,7 +78,17 @@ class EmployeeController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $pageTitle = 'Employee Detail';
+
+        // RAW SQL QUERY
+        $employee = collect(DB::select('
+            select *, employees.id as employee_id, positions.name as position_name
+            from employees
+            left join positions on employees.position_id = positions.id
+            where employees.id = ?
+        ', [$id]))->first();
+
+        return view('employee.show', compact('pageTitle', 'employee'));
     }
 
     /**
@@ -78,6 +112,12 @@ class EmployeeController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        // QUERY BUILDER
+        DB::table('employees')
+            ->where('id', $id)
+            ->delete();
+
+        return redirect()->route('employees.index');
     }
+
 }
